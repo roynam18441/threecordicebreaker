@@ -1,12 +1,19 @@
 {
   // Threefold Cord icebreaker — Worker that serves the static site and the
-  // /api endpoints (see worker.js). The D1 binding (variable name: DB) is
-  // added in the Cloudflare dashboard: Worker → Bindings → Add → D1 database.
+  // /api endpoints (see worker.js). The D1 binding is declared here (not
+  // only in the dashboard) so git deploys cannot drop it.
   "name": "threecordicebreaker",
   "main": "worker.js",
   "compatibility_date": "2024-12-01",
   "assets": {
     "directory": ".",
     "binding": "ASSETS"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "threecord-db",
+      "database_id": "bd4c9a66-ddfb-49c4-bcfd-8a0d5d889ab2"
+    }
+  ]
 }

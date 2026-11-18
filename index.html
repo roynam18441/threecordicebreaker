@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>삼겹줄 아이스브레이커</title>
+<title>삼겹줄 Icebreaker</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -57,7 +57,7 @@ function render() {
           '<div class="how-met">' + esc(fmtHowMet(c)) + '</div></div>';
       }).join("");
       app.innerHTML =
-        '<h1>삼겹줄 아이스브레이커 💛</h1>' +
+        '<h1>삼겹줄 Icebreaker 💛</h1>' +
         '<div class="card"><b>익명 질문을 이미 보냈습니다.</b><br>' +
         '<span class="couple-meta">받는 부부: ' + esc(t ? coupleName(t) : "") + '</span>' +
         '<div class="how-met">“' + esc(mine.text) + '”</div></div>' +
@@ -89,8 +89,8 @@ function render() {
   }).join("");
 
   app.innerHTML =
-    '<h1>삼겹줄 아이스브레이커 💛</h1>' +
-    '<p class="sub">궁금한 부부를 선택하고, 그 부부에 대해 더 알아갈 수 있는 질문을 익명으로 남겨 보세요. 질문하는 분이 누구인지는 공개되지 않으며, 부부당 하나의 질문만 보낼 수 있습니다.</p>' +
+    '<h1>삼겹줄 Icebreaker 💛</h1>' +
+    '<p class="sub">Pick your couple, choose another couple, and ask them one anonymous question.</p>' +
     '<h2>참석한 부부 — 질문할 부부를 눌러 주세요</h2>' + list +
     '<label class="field" for="q">익명 질문</label>' +
     '<textarea id="q" placeholder="예: 결혼하고 나서 가장 많이 맞춰가고 있는 부분은 무엇인가요?"></textarea>' +

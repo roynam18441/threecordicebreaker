@@ -58,7 +58,7 @@ function render() {
       }).join("");
       app.innerHTML =
         '<h1>삼겹줄 Icebreaker 💛</h1>' +
-        '<div class="card"><b>익명 질문을 이미 보냈습니다.</b><br>' +
+        '<div class="card"><b>아이스브레이커 질문을 이미 보냈습니다.</b><br>' +
         '<span class="couple-meta">받는 부부: ' + esc(t ? coupleName(t) : "") + '</span>' +
         '<div class="how-met">“' + esc(mine.text) + '”</div></div>' +
         '<button class="primary" id="toDone" style="margin-top:0">보낸 질문 확인하기</button>' +
@@ -68,7 +68,7 @@ function render() {
     }
     app.innerHTML =
       '<div class="done"><h1>감사합니다! 🙏</h1>' +
-      '<p class="sub">익명 질문이 전달되었습니다.</p>' +
+      '<p class="sub">아이스브레이커 질문이 전달되었습니다.</p>' +
       '<p>받는 부부: <b>' + esc(t ? coupleName(t) : "") + '</b></p>' +
       '<p class="q">“' + esc(mine.text) + '”</p>' +
       '<p class="sub">부부당 하나의 질문만 보낼 수 있어요. 참여해 주셔서 감사합니다.</p>' +
@@ -92,10 +92,10 @@ function render() {
     '<h1>삼겹줄 Icebreaker 💛</h1>' +
     '<p class="sub">Pick your couple, choose another couple, and ask them one anonymous question.</p>' +
     '<h2>참석한 부부 — 질문할 부부를 눌러 주세요</h2>' + list +
-    '<label class="field" for="q">익명 질문</label>' +
-    '<textarea id="q" placeholder="예: 결혼하고 나서 가장 많이 맞춰가고 있는 부분은 무엇인가요?"></textarea>' +
+    '<label class="field" for="q">아이스브레이커 질문</label>' +
+    '<textarea id="q"></textarea>' +
     '<div class="error" id="err"></div>' +
-    '<button class="primary" id="send">익명으로 질문 보내기</button>';
+    '<button class="primary" id="send">아이스브레이커 질문 보내기</button>';
 
   app.querySelectorAll("[data-target]").forEach(function (btn) {
     btn.addEventListener("click", function () {

@@ -32,29 +32,28 @@ separate admin page. All on-screen instructions are in Korean.
 ## Shared database on Cloudflare (D1) — for cross-device sync
 
 Static hosting alone cannot share state between phones. On Cloudflare the
-app uses **Pages Functions + D1**:
+site runs as a **Worker + D1**:
 
-- `functions/api/state.js` — `GET /api/state` returns the shared state.
-- `functions/api/action.js` — `POST /api/action` applies one change
-  (attendance / submit / update / delete) with the game rules enforced
-  server-side.
-- `functions/api/_db.js` — the state is one JSON document in a single-row
-  D1 table (`app_state`, see `schema.sql`). The table is created
-  automatically on first use.
+- `worker.js` — serves the static files and the API:
+  `GET /api/state` returns the shared state; `POST /api/action` applies one
+  change (attendance / submit / update / delete) with the game rules
+  enforced server-side.
+- The state is one JSON document in a single-row D1 table (`app_state`,
+  see `schema.sql`). The table is created automatically on first use.
+- `wrangler.jsonc` — Worker name/config; static assets are the repo root.
 - `store.js` detects `/api/state` on load and switches to **cloudflare
   mode**: every device reads/writes the shared D1 state and polls every
   4 seconds, so check-ins and questions appear on all phones.
 
 ### One-time setup (Cloudflare dashboard)
 
-1. **Create the database:** Storage & Databases → **D1 SQL Database** →
+1. **Create the database:** Storage & Databases → **D1 SQLite Database** →
    Create database → name it `threecord-db`.
-2. **Bind it to the Pages project:** your Pages project → Settings →
-   **Functions** → D1 database bindings → Add binding →
-   Variable name: `DB` → select `threecord-db` → Save.
-   (Add it under both Production and Preview if you use previews.)
+2. **Bind it to the Worker:** Workers & Pages → `threecordicebreaker` →
+   **Bindings → Add a binding → D1 database** →
+   Variable name: `DB` → select `threecord-db` → Deploy.
 3. **Redeploy:** push any commit (or Deployments → Retry deployment) so the
-   binding takes effect.
+   binding and the latest code take effect.
 4. **Verify:** open the admin page — the mode line should read
    **실시간 동기화**. Check a couple in on one device; a second device shows
    them within ~5 seconds.
@@ -75,4 +74,4 @@ switches automatically. Cloudflare mode takes priority when both exist.
 - **Wording / layout:** `index.html` (main), `admin/index.html` (admin)
 - **Look:** `styles.css` — deliberately simple: no hero, no header/footer
 - **Rules (one-per-phone, present-only, anonymity):** `store.js` (client) and
-  `functions/api/action.js` (server)
+  `worker.js` (server)

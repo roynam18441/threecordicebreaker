@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>삼겹줄 Icebreaker</title>
+<title>삼겹줄 아이스브레이커</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,10 +13,20 @@
 <script src="firebase-config.js"></script>
 <script src="store.js"></script>
 <script>
+// 질문하는 사람은 익명입니다 — 이름이나 부부를 선택하지 않습니다.
+// 아래 토큰은 이 기기에서 만든 무작위 값으로, "부부당 질문 하나"를 지키는
+// 용도로만 쓰이며 어디에도 표시되지 않습니다.
+var deviceKey = null;
+try {
+  deviceKey = localStorage.getItem("threecord_device_key");
+  if (!deviceKey) {
+    deviceKey = "dev" + Date.now() + Math.floor(Math.random() * 1000000);
+    localStorage.setItem("threecord_device_key", deviceKey);
+  }
+} catch (e) { deviceKey = "dev-ephemeral"; }
+
 var app = document.getElementById("app");
-var myId = null;        // the asking couple ("We are...")
-var targetId = null;    // the couple being asked
-try { myId = parseInt(localStorage.getItem("threecord_my_id") || "", 10) || null; } catch (e) {}
+var targetId = null;    // 질문을 받을 부부
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -29,56 +39,42 @@ function render() {
   var present = window.COUPLES.filter(function (c) { return state.presentIds.indexOf(c.id) !== -1; });
 
   if (present.length === 0) {
-    app.innerHTML = '<div class="waiting">Check-in hasn\'t opened yet — please wait for the host.<br><br>아직 체크인이 시작되지 않았습니다. 잠시만 기다려 주세요.</div>';
+    app.innerHTML = '<div class="waiting">아직 체크인이 시작되지 않았습니다.<br>호스트가 출석을 확인할 때까지 잠시만 기다려 주세요.</div>';
     return;
   }
 
-  // If my couple is no longer present (admin unchecked), reset identity.
-  if (myId && state.presentIds.indexOf(myId) === -1) { myId = null; targetId = null; }
-
-  var mine = myId ? state.questions.find(function (q) { return q.askerId === myId; }) : null;
+  var mine = state.questions.find(function (q) { return q.askerId === deviceKey; });
 
   if (mine) {
     var t = findCouple(mine.targetId);
     app.innerHTML =
-      '<div class="done"><h1>Thank you! 🙏</h1>' +
-      '<p class="sub">Your anonymous question has been sent.</p>' +
-      '<p>To: <b>' + esc(t ? coupleName(t) : "") + '</b></p>' +
+      '<div class="done"><h1>감사합니다! 🙏</h1>' +
+      '<p class="sub">익명 질문이 전달되었습니다.</p>' +
+      '<p>받는 부부: <b>' + esc(t ? coupleName(t) : "") + '</b></p>' +
       '<p class="q">“' + esc(mine.text) + '”</p>' +
-      '<p class="sub">Each couple asks one question — you\'re all set.</p></div>';
+      '<p class="sub">부부당 하나의 질문만 보낼 수 있어요. 참여해 주셔서 감사합니다.</p></div>';
     return;
   }
 
-  var options = present.map(function (c) {
-    return '<option value="' + c.id + '"' + (myId === c.id ? " selected" : "") + '>' + esc(coupleName(c)) + '</option>';
-  }).join("");
+  if (targetId && state.presentIds.indexOf(targetId) === -1) targetId = null;
 
   var list = present.map(function (c) {
     var isTarget = targetId === c.id;
-    var dis = myId === c.id;
-    return '<button type="button" class="card pickable' + (isTarget ? " selected" : "") + '" data-target="' + c.id + '"' + (dis ? " disabled style=\"opacity:.45\"" : "") + '>' +
+    return '<button type="button" class="card pickable' + (isTarget ? " selected" : "") + '" data-target="' + c.id + '">' +
       '<div class="couple-name">' + esc(coupleName(c)) + '</div>' +
-      '<div class="couple-meta">결혼 ' + esc(c.duration) + (dis ? " · 우리 부부" : "") + '</div>' +
+      '<div class="couple-meta">' + esc(fmtDuration(c)) + '</div>' +
       '<div class="how-met">💛 ' + esc(c.howMet) + '</div></button>';
   }).join("");
 
   app.innerHTML =
-    '<h1>삼겹줄 Icebreaker 💛</h1>' +
-    '<p class="sub">Pick your couple, choose another couple, and ask them one anonymous question.</p>' +
-    '<label class="field" for="me">We are… (우리 부부)</label>' +
-    '<select id="me"><option value="">— select your couple —</option>' + options + '</select>' +
-    '<h2>Who\'s here — tap a couple to ask them</h2>' + list +
-    '<label class="field" for="q">Your anonymous question</label>' +
-    '<textarea id="q" placeholder="e.g. 결혼하고 나서 가장 많이 맞춰가고 있는 부분은 무엇인가요?"></textarea>' +
+    '<h1>삼겹줄 아이스브레이커 💛</h1>' +
+    '<p class="sub">궁금한 부부를 선택하고, 그 부부에 대해 더 알아갈 수 있는 질문을 익명으로 남겨 보세요. 질문하는 분이 누구인지는 공개되지 않으며, 부부당 하나의 질문만 보낼 수 있습니다.</p>' +
+    '<h2>참석한 부부 — 질문할 부부를 눌러 주세요</h2>' + list +
+    '<label class="field" for="q">익명 질문</label>' +
+    '<textarea id="q" placeholder="예: 결혼하고 나서 가장 많이 맞춰가고 있는 부분은 무엇인가요?"></textarea>' +
     '<div class="error" id="err"></div>' +
-    '<button class="primary" id="send">Send question anonymously</button>';
+    '<button class="primary" id="send">익명으로 질문 보내기</button>';
 
-  document.getElementById("me").addEventListener("change", function (e) {
-    myId = parseInt(e.target.value, 10) || null;
-    if (targetId === myId) targetId = null;
-    try { localStorage.setItem("threecord_my_id", myId || ""); } catch (err) {}
-    render();
-  });
   app.querySelectorAll("[data-target]").forEach(function (btn) {
     btn.addEventListener("click", function () {
       targetId = parseInt(btn.getAttribute("data-target"), 10);
@@ -88,10 +84,9 @@ function render() {
   });
   document.getElementById("send").addEventListener("click", function () {
     var err = document.getElementById("err");
-    if (!myId) { err.textContent = "First pick your own couple under “We are…”."; return; }
-    if (!targetId) { err.textContent = "Tap a couple above to ask them a question."; return; }
+    if (!targetId) { err.textContent = "먼저 위에서 질문할 부부를 선택해 주세요."; return; }
     var text = document.getElementById("q").value;
-    var res = Store.submitQuestion(myId, targetId, text);
+    var res = Store.submitQuestion(deviceKey, targetId, text);
     if (!res.ok) { err.textContent = res.error; return; }
     render();
   });

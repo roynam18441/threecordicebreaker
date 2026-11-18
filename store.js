@@ -90,18 +90,19 @@
       if (!present && i !== -1) state.presentIds.splice(i, 1);
       save();
     },
-    submitQuestion: function (askerId, targetId, text) {
-      if (state.presentIds.indexOf(askerId) === -1 || state.presentIds.indexOf(targetId) === -1)
-        return { ok: false, error: "Both couples must be checked in as present." };
-      if (askerId === targetId)
-        return { ok: false, error: "Pick a different couple — you can't ask yourselves." };
-      if (state.questions.some(function (q) { return q.askerId === askerId; }))
-        return { ok: false, error: "Your couple has already submitted a question." };
+    // The asker is never identified — no name/couple is collected anywhere.
+    // askerKey is a random per-device token (see index.html), used only to
+    // enforce one question per couple (one per device) and never displayed.
+    submitQuestion: function (askerKey, targetId, text) {
+      if (state.presentIds.indexOf(targetId) === -1)
+        return { ok: false, error: "질문을 보낼 부부가 아직 체크인되지 않았습니다." };
+      if (state.questions.some(function (q) { return q.askerId === askerKey; }))
+        return { ok: false, error: "이미 질문을 보내셨습니다. 부부당 하나의 질문만 보낼 수 있습니다." };
       text = (text || "").trim();
-      if (!text) return { ok: false, error: "Write a question first." };
+      if (!text) return { ok: false, error: "질문을 입력해 주세요." };
       state.questions.push({
         id: "q" + Date.now() + Math.floor(Math.random() * 1000),
-        askerId: askerId, targetId: targetId, text: text, createdAt: Date.now()
+        askerId: askerKey, targetId: targetId, text: text, createdAt: Date.now()
       });
       save();
       return { ok: true };

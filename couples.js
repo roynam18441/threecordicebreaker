@@ -21,4 +21,8 @@ window.COUPLES = [
 ];
 
 window.coupleName = function (c) { return c.husband + " & " + c.wife; };
+// "결혼 5-10년차" / "결혼 1-4년차" — but "1년 미만" takes no 차 suffix.
+window.fmtDuration = function (c) {
+  return "결혼 " + (c.duration.indexOf("미만") !== -1 ? c.duration : c.duration + "차");
+};
 window.findCouple = function (id) { return window.COUPLES.find(function (c) { return c.id === id; }); };

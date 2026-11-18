@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>삼겹줄 Admin</title>
+<title>삼겹줄 관리자</title>
 <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
@@ -22,7 +22,7 @@ function esc(s) {
   });
 }
 function fmtTime(ts) {
-  try { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
+  try { return new Date(ts).toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
 }
 
 function render() {
@@ -32,38 +32,39 @@ function render() {
   var atts = window.COUPLES.map(function (c) {
     var on = state.presentIds.indexOf(c.id) !== -1;
     return '<label class="att-row"><input type="checkbox" data-att="' + c.id + '"' + (on ? " checked" : "") + '>' +
-      '<span><b>' + esc(coupleName(c)) + '</b> <span class="couple-meta">· 결혼 ' + esc(c.duration) + '</span><br>' +
+      '<span><b>' + esc(coupleName(c)) + '</b> <span class="couple-meta">· ' + esc(fmtDuration(c)) + '</span><br>' +
       '<span class="couple-meta">' + esc(c.howMet) + '</span></span></label>';
   }).join("");
 
   var qs = state.questions.slice().sort(function (a, b) { return a.createdAt - b.createdAt; });
   var qlist;
   if (qs.length === 0) {
-    qlist = '<div class="empty">No questions yet.</div>';
+    qlist = '<div class="empty">아직 접수된 질문이 없습니다.</div>';
   } else {
     qlist = qs.map(function (q) {
       var t = findCouple(q.targetId);
-      var head = '<div class="couple-name">To: ' + esc(t ? coupleName(t) : "?") + '</div>' +
-                 '<div class="couple-meta">' + fmtTime(q.createdAt) + ' · anonymous</div>';
+      var head = '<div class="couple-name">받는 부부: ' + esc(t ? coupleName(t) : "?") + '</div>' +
+                 '<div class="couple-meta">' + fmtTime(q.createdAt) + ' · 익명</div>';
       if (editingId === q.id) {
         return '<div class="card q-row">' + head +
           '<textarea id="edit-text">' + esc(q.text) + '</textarea>' +
-          '<button data-save="' + q.id + '">Save</button>' +
-          '<button data-cancel="1">Cancel</button></div>';
+          '<button data-save="' + q.id + '">저장</button>' +
+          '<button data-cancel="1">취소</button></div>';
       }
       return '<div class="card q-row">' + head +
         '<p>“' + esc(q.text) + '”</p>' +
-        '<button data-edit="' + q.id + '">Edit</button>' +
-        '<button class="danger" data-del="' + q.id + '">Delete</button></div>';
+        '<button data-edit="' + q.id + '">수정</button>' +
+        '<button class="danger" data-del="' + q.id + '">삭제</button></div>';
     }).join("");
   }
 
   app.innerHTML =
-    '<h1>Admin — 삼겹줄 Icebreaker</h1>' +
-    '<p class="sub">Mode: <b>' + Store.mode() + '</b>' + (Store.mode() === "local" ? ' — this device only. Fill in firebase-config.js for live cross-phone sync.' : ' — live sync on.') + '</p>' +
-    '<h2>Attendance — <span class="count">' + presentCount + ' / ' + window.COUPLES.length + ' present</span></h2>' +
+    '<h1>관리자 — 삼겹줄 아이스브레이커</h1>' +
+    '<p class="sub">모드: <b>' + (Store.mode() === "local" ? "로컬" : "실시간 동기화") + '</b>' +
+    (Store.mode() === "local" ? ' — 이 기기에만 저장됩니다. 휴대폰 간 실시간 동기화는 firebase-config.js 설정을 참고하세요.' : ' — 모든 기기가 실시간으로 동기화됩니다.') + '</p>' +
+    '<h2>출석 확인 — <span class="count">' + presentCount + ' / ' + window.COUPLES.length + ' 부부 참석</span></h2>' +
     atts +
-    '<h2>Questions (' + qs.length + ')</h2>' + qlist;
+    '<h2>질문 목록 (' + qs.length + '개)</h2>' + qlist;
 
   app.querySelectorAll("[data-att]").forEach(function (box) {
     box.addEventListener("change", function () {
@@ -75,7 +76,7 @@ function render() {
   });
   app.querySelectorAll("[data-del]").forEach(function (b) {
     b.addEventListener("click", function () {
-      if (confirm("Delete this question? The asking couple will be able to ask again.")) {
+      if (confirm("이 질문을 삭제할까요? 삭제하면 질문한 부부가 다시 질문할 수 있습니다.")) {
         Store.deleteQuestion(b.getAttribute("data-del"));
       }
     });

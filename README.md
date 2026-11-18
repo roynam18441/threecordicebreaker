@@ -3,10 +3,11 @@
 Anonymous icebreaker game for the NFC 삼겹줄 young married couples meeting
 (first meeting: Sat Nov 21, 2026, 선교관).
 
-Each couple picks their own couple ("We are…"), sees the couples who are
-checked in as present — with how each couple first met — taps one couple,
-and sends them **one anonymous question**. The host moderates from a
-separate admin page.
+Attendees see the couples who are checked in as present — with how each
+couple first met — tap one couple, and send them **one anonymous question**.
+Nobody is asked to identify themselves: the asking couple is never named,
+selected, or displayed anywhere. The host moderates from a separate
+admin page. All on-screen instructions are in Korean.
 
 ## Pages
 
@@ -26,11 +27,14 @@ The URLs above go live a minute later.
 - **Attendance first.** Nobody is present by default. The host checks couples
   in on the admin page; only present couples appear on phones, and only
   present couples can be asked or ask.
-- **One question per couple.** Enforced in `store.js`. After sending, the
-  couple sees their question and a thank-you state instead of the form.
-  If the host deletes their question, they can ask again.
-- **Anonymous.** The admin question list shows only the target couple, the
-  question text, and the time — never who asked.
+- **One question per couple.** Enforced in `store.js` by a random per-device
+  token (no identity is collected, so in practice this is one question per
+  phone). After sending, the couple sees their question and a thank-you
+  state instead of the form. If the host deletes their question, they can
+  ask again.
+- **Anonymous.** There is no "who are we" picker at all. The admin question
+  list shows only the target couple, the question text, and the time —
+  never who asked.
 - **Admin moderation.** Edit (inline) or delete any question on the admin page.
 
 ## Important: sync across phones

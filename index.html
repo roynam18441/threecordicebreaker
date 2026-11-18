@@ -108,7 +108,7 @@ function render() {
     var err = document.getElementById("err");
     if (!targetId) { err.textContent = "먼저 위에서 질문할 부부를 선택해 주세요."; return; }
     var text = document.getElementById("q").value;
-    var res = Store.submitQuestion(deviceKey, targetId, text);
+    var res = Store.submitQuestion(targetId, text);
     if (!res.ok) { err.textContent = res.error; return; }
     render();
   });

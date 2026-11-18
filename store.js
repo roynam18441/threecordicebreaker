@@ -148,7 +148,8 @@
       else persist();
     },
     submitQuestion(targetId, text) {
-      text = (text || "").trim();
+      targetId = Number(targetId);
+      text = String(text == null ? "" : text).trim();
       if (!state.presentIds.includes(targetId)) return { ok: false, error: "참석이 확인된 부부에게만 질문할 수 있습니다." };
       if (!text) return { ok: false, error: "질문을 입력해 주세요." };
       if (this.myQuestion()) return { ok: false, error: "이미 질문을 보내셨습니다." };
@@ -165,7 +166,7 @@
       return { ok: true, question: q };
     },
     updateQuestion(id, text) {
-      text = (text || "").trim();
+      text = String(text == null ? "" : text).trim();
       if (!text) return { ok: false, error: "질문을 입력해 주세요." };
       const q = state.questions.find((x) => x.id === id);
       if (!q) return { ok: false, error: "질문을 찾을 수 없습니다." };

@@ -27,19 +27,24 @@
   function notify() {
     listeners.forEach((fn) => { try { fn(); } catch (e) {} });
   }
+  // Couple ids are numbers in couples.js; coerce any string ids ("1") coming
+  // from a backend so includes() comparisons match.
+  function normalize(s) {
+    return {
+      presentIds: (Array.isArray(s.presentIds) ? s.presentIds : []).map(Number).filter(Number.isFinite),
+      questions: (Array.isArray(s.questions) ? s.questions : []).map((q) => ({ ...q, targetId: Number(q.targetId) }))
+    };
+  }
   function adoptState(next) {
     const a = JSON.stringify(state);
-    state = {
-      presentIds: Array.isArray(next.presentIds) ? next.presentIds : [],
-      questions: Array.isArray(next.questions) ? next.questions : []
-    };
+    state = normalize(next);
     if (a !== JSON.stringify(state)) notify();
   }
   // ---- local backend ----
   function loadLocal() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) state = JSON.parse(raw);
+      if (raw) state = normalize(JSON.parse(raw));
     } catch (e) {}
   }
   function saveLocal() {
@@ -64,7 +69,7 @@
       fsMod.onSnapshot(fsDoc, (snap) => {
         if (snap.exists()) {
           const d = snap.data();
-          state = { presentIds: d.presentIds || [], questions: d.questions || [] };
+          state = normalize({ presentIds: d.presentIds || [], questions: d.questions || [] });
         }
         notify();
         if (first) { first = false; onReady(); }
@@ -92,7 +97,7 @@
     try {
       const data = await cfFetchState();
       backend = "cloudflare";
-      state = data;
+      state = normalize(data);
       onReady();
       setInterval(async () => {
         if (Date.now() - lastWriteAt < 5000) return; // don't clobber fresh writes

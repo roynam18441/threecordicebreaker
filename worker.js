@@ -17,9 +17,14 @@ async function readState(env) {
   if (!row || !row.data) return { presentIds: [], questions: [] };
   try {
     const parsed = JSON.parse(row.data);
+    // Couple ids are numbers in couples.js — normalize anything stored as
+    // strings ("1") back to numbers so id comparisons match everywhere.
     return {
-      presentIds: Array.isArray(parsed.presentIds) ? parsed.presentIds : [],
-      questions: Array.isArray(parsed.questions) ? parsed.questions : []
+      presentIds: (Array.isArray(parsed.presentIds) ? parsed.presentIds : [])
+        .map(Number)
+        .filter(Number.isFinite),
+      questions: (Array.isArray(parsed.questions) ? parsed.questions : [])
+        .map((q) => ({ ...q, targetId: Number(q.targetId) }))
     };
   } catch (e) {
     return { presentIds: [], questions: [] };
@@ -47,13 +52,14 @@ async function handleAction(request, env) {
   const state = await readState(env);
 
   if (body.type === "attendance") {
-    const id = String(body.coupleId || "");
+    const id = Number(body.coupleId);
+    if (!Number.isFinite(id)) return json({ ok: false, error: "잘못된 요청입니다." });
     const set = new Set(state.presentIds);
     if (body.present) set.add(id); else set.delete(id);
     state.presentIds = [...set];
   } else if (body.type === "submit") {
     const askerKey = String(body.askerKey || "");
-    const targetId = String(body.targetId || "");
+    const targetId = Number(body.targetId);
     const text = String(body.text || "").trim();
     if (!askerKey) return json({ ok: false, error: "오류가 발생했습니다. 다시 시도해 주세요." });
     if (!state.presentIds.includes(targetId)) return json({ ok: false, error: "참석이 확인된 부부에게만 질문할 수 있습니다." });

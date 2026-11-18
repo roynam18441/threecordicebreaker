@@ -33,7 +33,7 @@ function render() {
     var on = state.presentIds.indexOf(c.id) !== -1;
     return '<label class="att-row"><input type="checkbox" data-att="' + c.id + '"' + (on ? " checked" : "") + '>' +
       '<span><b>' + esc(coupleName(c)) + '</b> <span class="couple-meta">· ' + esc(fmtDuration(c)) + '</span><br>' +
-      '<span class="couple-meta">' + esc(c.howMet) + '</span></span></label>';
+      '<span class="couple-meta">' + esc(fmtHowMet(c)) + '</span></span></label>';
   }).join("");
 
   var qs = state.questions.slice().sort(function (a, b) { return a.createdAt - b.createdAt; });

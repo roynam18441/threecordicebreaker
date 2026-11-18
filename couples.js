@@ -21,8 +21,10 @@ window.COUPLES = [
 ];
 
 window.coupleName = function (c) { return c.husband + " & " + c.wife; };
-// "결혼 5-10년차" / "결혼 1-4년차" — but "1년 미만" takes no 차 suffix.
+// "결혼 5-10년차 가정" / "결혼 1-4년차 가정" — but "1년 미만" takes no 차 suffix.
 window.fmtDuration = function (c) {
-  return "결혼 " + (c.duration.indexOf("미만") !== -1 ? c.duration : c.duration + "차");
+  return "결혼 " + (c.duration.indexOf("미만") !== -1 ? c.duration : c.duration + "차") + " 가정";
 };
+// "처음 만나게 된 계기: 스키장에서"
+window.fmtHowMet = function (c) { return "처음 만나게 된 계기: " + c.howMet; };
 window.findCouple = function (id) { return window.COUPLES.find(function (c) { return c.id === id; }); };

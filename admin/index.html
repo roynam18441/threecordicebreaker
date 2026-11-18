@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>삼겹줄 Admin</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+<main id="app"></main>
+
+<script src="../couples.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../store.js"></script>
+<script>
+var app = document.getElementById("app");
+var editingId = null;
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function fmtTime(ts) {
+  try { return new Date(ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
+}
+
+function render() {
+  var state = Store.getState();
+  var presentCount = state.presentIds.length;
+
+  var atts = window.COUPLES.map(function (c) {
+    var on = state.presentIds.indexOf(c.id) !== -1;
+    return '<label class="att-row"><input type="checkbox" data-att="' + c.id + '"' + (on ? " checked" : "") + '>' +
+      '<span><b>' + esc(coupleName(c)) + '</b> <span class="couple-meta">· 결혼 ' + esc(c.duration) + '</span><br>' +
+      '<span class="couple-meta">' + esc(c.howMet) + '</span></span></label>';
+  }).join("");
+
+  var qs = state.questions.slice().sort(function (a, b) { return a.createdAt - b.createdAt; });
+  var qlist;
+  if (qs.length === 0) {
+    qlist = '<div class="empty">No questions yet.</div>';
+  } else {
+    qlist = qs.map(function (q) {
+      var t = findCouple(q.targetId);
+      var head = '<div class="couple-name">To: ' + esc(t ? coupleName(t) : "?") + '</div>' +
+                 '<div class="couple-meta">' + fmtTime(q.createdAt) + ' · anonymous</div>';
+      if (editingId === q.id) {
+        return '<div class="card q-row">' + head +
+          '<textarea id="edit-text">' + esc(q.text) + '</textarea>' +
+          '<button data-save="' + q.id + '">Save</button>' +
+          '<button data-cancel="1">Cancel</button></div>';
+      }
+      return '<div class="card q-row">' + head +
+        '<p>“' + esc(q.text) + '”</p>' +
+        '<button data-edit="' + q.id + '">Edit</button>' +
+        '<button class="danger" data-del="' + q.id + '">Delete</button></div>';
+    }).join("");
+  }
+
+  app.innerHTML =
+    '<h1>Admin — 삼겹줄 Icebreaker</h1>' +
+    '<p class="sub">Mode: <b>' + Store.mode() + '</b>' + (Store.mode() === "local" ? ' — this device only. Fill in firebase-config.js for live cross-phone sync.' : ' — live sync on.') + '</p>' +
+    '<h2>Attendance — <span class="count">' + presentCount + ' / ' + window.COUPLES.length + ' present</span></h2>' +
+    atts +
+    '<h2>Questions (' + qs.length + ')</h2>' + qlist;
+
+  app.querySelectorAll("[data-att]").forEach(function (box) {
+    box.addEventListener("change", function () {
+      Store.setAttendance(parseInt(box.getAttribute("data-att"), 10), box.checked);
+    });
+  });
+  app.querySelectorAll("[data-edit]").forEach(function (b) {
+    b.addEventListener("click", function () { editingId = b.getAttribute("data-edit"); render(); });
+  });
+  app.querySelectorAll("[data-del]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (confirm("Delete this question? The asking couple will be able to ask again.")) {
+        Store.deleteQuestion(b.getAttribute("data-del"));
+      }
+    });
+  });
+  app.querySelectorAll("[data-save]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      Store.updateQuestion(b.getAttribute("data-save"), document.getElementById("edit-text").value);
+      editingId = null;
+    });
+  });
+  app.querySelectorAll("[data-cancel]").forEach(function (b) {
+    b.addEventListener("click", function () { editingId = null; render(); });
+  });
+}
+
+Store.subscribe(render);
+Store.init(render);
+</script>
+</body>
+</html>

@@ -4,58 +4,75 @@ Anonymous icebreaker game for the NFC 삼겹줄 young married couples meeting
 (first meeting: Sat Nov 21, 2026, 선교관).
 
 Attendees see the couples who are checked in as present — with how each
-couple first met — tap one couple, and send them **one anonymous question**.
-Nobody is asked to identify themselves: the asking couple is never named,
-selected, or displayed anywhere. The host moderates from a separate
-admin page. All on-screen instructions are in Korean.
+couple first met — tap one couple, and send them **one anonymous icebreaker
+question**. Nobody is asked to identify themselves: the asking couple is
+never named, selected, or displayed anywhere. The host moderates from a
+separate admin page. All on-screen instructions are in Korean.
 
 ## Pages
 
-| Page | URL (GitHub Pages) |
+| Page | Path |
 | --- | --- |
-| Main (attendees) | `https://roynam18441.github.io/threecordicebreaker/` |
-| Admin (host only, not linked from main) | `https://roynam18441.github.io/threecordicebreaker/admin/` |
-
-## Turn on the public site (one time)
-
-Repo **Settings → Pages** → Build and deployment → Source:
-**Deploy from a branch** → Branch: `main`, folder: `/ (root)` → Save.
-The URLs above go live a minute later.
+| Main (attendees) | `/` |
+| Admin (host only, not linked from main) | `/admin/` |
 
 ## How it works
 
 - **Attendance first.** Nobody is present by default. The host checks couples
-  in on the admin page; only present couples appear on phones, and only
-  present couples can be asked or ask.
-- **One question per couple.** Enforced in `store.js` by a random per-device
-  token (no identity is collected, so in practice this is one question per
-  phone). After sending, the couple sees their question and a thank-you
-  state instead of the form. If the host deletes their question, they can
-  ask again.
+  in on the admin page; only present couples appear on phones and can be asked.
+- **One question per phone.** Enforced by a random per-device token (no
+  identity is collected). After sending, the sender sees their question and a
+  thank-you state instead of the form, and can return to the home view to see
+  who has checked in. If the host deletes their question, they can ask again.
 - **Anonymous.** There is no "who are we" picker at all. The admin question
   list shows only the target couple, the question text, and the time —
   never who asked.
 - **Admin moderation.** Edit (inline) or delete any question on the admin page.
 
-## Important: sync across phones
+## Shared database on Cloudflare (D1) — for cross-device sync
 
-GitHub Pages is static hosting, so out of the box the app runs in **local
-mode**: state is stored in each browser (localStorage). That is fine for
-viewing and editing the pages, but attendees' phones will not see each
-other's check-ins/questions.
+Static hosting alone cannot share state between phones. On Cloudflare the
+app uses **Pages Functions + D1**:
 
-For the live event, enable free cross-device sync:
+- `functions/api/state.js` — `GET /api/state` returns the shared state.
+- `functions/api/action.js` — `POST /api/action` applies one change
+  (attendance / submit / update / delete) with the game rules enforced
+  server-side.
+- `functions/api/_db.js` — the state is one JSON document in a single-row
+  D1 table (`app_state`, see `schema.sql`). The table is created
+  automatically on first use.
+- `store.js` detects `/api/state` on load and switches to **cloudflare
+  mode**: every device reads/writes the shared D1 state and polls every
+  4 seconds, so check-ins and questions appear on all phones.
 
-1. Create a Firebase project and a Firestore database (test mode) —
-   steps are written out in `firebase-config.js`.
-2. Paste your `firebaseConfig` into `firebase-config.js` and push.
+### One-time setup (Cloudflare dashboard)
 
-`store.js` then switches to Firestore automatically; every phone syncs live.
-No other file changes are needed.
+1. **Create the database:** Storage & Databases → **D1 SQL Database** →
+   Create database → name it `threecord-db`.
+2. **Bind it to the Pages project:** your Pages project → Settings →
+   **Functions** → D1 database bindings → Add binding →
+   Variable name: `DB` → select `threecord-db` → Save.
+   (Add it under both Production and Preview if you use previews.)
+3. **Redeploy:** push any commit (or Deployments → Retry deployment) so the
+   binding takes effect.
+4. **Verify:** open the admin page — the mode line should read
+   **실시간 동기화**. Check a couple in on one device; a second device shows
+   them within ~5 seconds.
+
+Until the binding exists, `/api` returns an error and the app quietly falls
+back to local mode on each device — nothing breaks, it just doesn't sync.
+
+### Alternative backend: Firebase
+
+If the site is ever hosted somewhere without D1, `store.js` can instead use
+Firestore: create a Firebase project + Firestore (test mode), paste the
+`firebaseConfig` into `firebase-config.js` (steps in that file), and it
+switches automatically. Cloudflare mode takes priority when both exist.
 
 ## Editing
 
 - **Couples list / how-they-met:** `couples.js` (verbatim from the signup sheet)
 - **Wording / layout:** `index.html` (main), `admin/index.html` (admin)
 - **Look:** `styles.css` — deliberately simple: no hero, no header/footer
-- **Rules (one-per-couple, present-only, anonymity):** `store.js`
+- **Rules (one-per-phone, present-only, anonymity):** `store.js` (client) and
+  `functions/api/action.js` (server)

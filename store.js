@@ -1,119 +1,178 @@
-// Shared state for the Threefold Cord icebreaker.
-//
-// Two modes, chosen automatically:
-//  - LOCAL (default): state lives in this browser's localStorage.
-//    Works for previewing/editing. Devices do NOT sync with each other.
-//  - FIREBASE: if window.FIREBASE_CONFIG is filled in (see firebase-config.js),
-//    state lives in one Firestore document and every phone syncs live.
-//
-// Public API (used by index.html and admin/index.html):
-//   Store.init(onReady)            — call once; onReady fires when state is loaded
-//   Store.getState()               — { presentIds: [id..], questions: [{id, askerId, targetId, text, createdAt}] }
-//   Store.setAttendance(id, bool)
-//   Store.submitQuestion(askerId, targetId, text) -> { ok } or { ok:false, error }
-//   Store.updateQuestion(id, text)
-//   Store.deleteQuestion(id)
-//   Store.subscribe(cb)            — cb() runs whenever state changes
+// Threefold Cord icebreaker — data store.
+// Backends, in priority order:
+//   1. cloudflare — same-origin Pages Functions + D1 (/api/state, /api/action).
+//      Used automatically when the site is served from Cloudflare and the DB
+//      binding exists. Every device shares one state; clients poll every 4s.
+//   2. firebase — if firebase-config.js has a config, Firestore live sync.
+//   3. local — localStorage on this device only (GitHub Pages without a
+//      backend, or plain file preview). Devices do NOT sync in this mode.
+// Shared state shape: { presentIds: [coupleId..], questions: [{id, askerId, targetId, text, createdAt}] }
+// The asker is anonymous: askerId is a random per-device token, never shown.
 (function () {
-  var LS_KEY = "threecord_state_v1";
-  var listeners = [];
-  var state = { presentIds: [], questions: [] };
-  var backend = "local";
-  var db = null;
-  var docRef = null;
+  const LS_KEY = "threecord_state_v1";
+  const LS_DEVICE = "threecord_device_key";
+  let backend = "local";
+  let state = { presentIds: [], questions: [] };
+  const listeners = [];
+  let lastWriteAt = 0;
 
-  function notify() { listeners.forEach(function (cb) { try { cb(); } catch (e) {} }); }
-
-  // ---------- local backend ----------
-  function localLoad() {
+  function deviceKey() {
+    let k = localStorage.getItem(LS_DEVICE);
+    if (!k) {
+      k = "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem(LS_DEVICE, k);
+    }
+    return k;
+  }
+  function notify() {
+    listeners.forEach((fn) => { try { fn(); } catch (e) {} });
+  }
+  function adoptState(next) {
+    const a = JSON.stringify(state);
+    state = {
+      presentIds: Array.isArray(next.presentIds) ? next.presentIds : [],
+      questions: Array.isArray(next.questions) ? next.questions : []
+    };
+    if (a !== JSON.stringify(state)) notify();
+  }
+  // ---- local backend ----
+  function loadLocal() {
     try {
-      var raw = localStorage.getItem(LS_KEY);
+      const raw = localStorage.getItem(LS_KEY);
       if (raw) state = JSON.parse(raw);
     } catch (e) {}
   }
-  function localSave() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+  function saveLocal() {
+    if (backend === "local") {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+    }
     notify();
   }
-
-  // ---------- firebase backend ----------
-  function loadScript(src) {
-    return new Promise(function (res, rej) {
-      var s = document.createElement("script");
-      s.src = src; s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
-    });
+  // ---- firebase backend ----
+  let fsDoc = null, fsSet = null;
+  async function initFirebase(onReady) {
+    try {
+      const cfg = window.FIREBASE_CONFIG;
+      if (!cfg) return false;
+      const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+      const fsMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const app = appMod.initializeApp(cfg);
+      const db = fsMod.getFirestore(app);
+      fsDoc = fsMod.doc(db, "threecord", "main");
+      fsSet = fsMod.setDoc;
+      let first = true;
+      fsMod.onSnapshot(fsDoc, (snap) => {
+        if (snap.exists()) {
+          const d = snap.data();
+          state = { presentIds: d.presentIds || [], questions: d.questions || [] };
+        }
+        notify();
+        if (first) { first = false; onReady(); }
+      }, () => { if (first) { first = false; onReady(); } });
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
-  function firebaseInit(onReady) {
-    var base = "https://www.gstatic.com/firebasejs/10.12.2/";
-    loadScript(base + "firebase-app-compat.js")
-      .then(function () { return loadScript(base + "firebase-firestore-compat.js"); })
-      .then(function () {
-        firebase.initializeApp(window.FIREBASE_CONFIG);
-        db = firebase.firestore();
-        docRef = db.collection("threecord").doc("main");
-        backend = "firebase";
-        docRef.onSnapshot(function (snap) {
-          if (snap.exists) {
-            var d = snap.data();
-            state = { presentIds: d.presentIds || [], questions: d.questions || [] };
-          } else {
-            docRef.set(state);
-          }
-          notify();
-          if (onReady) { onReady(); onReady = null; }
-        }, function () { if (onReady) { onReady(); onReady = null; } });
-      })
-      .catch(function () { backend = "local"; localLoad(); notify(); if (onReady) onReady(); });
-  }
-  function firebaseSave() {
-    if (docRef) docRef.set(state);
+  function saveFirebase() {
+    if (fsDoc && fsSet) fsSet(fsDoc, state).catch(() => {});
     notify();
   }
-
-  function save() { backend === "firebase" ? firebaseSave() : localSave(); }
+  // ---- cloudflare backend ----
+  async function cfFetchState() {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (!res.ok) throw new Error("api " + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.presentIds) || !Array.isArray(data.questions)) {
+      throw new Error("bad state");
+    }
+    return data;
+  }
+  async function initCloudflare(onReady) {
+    try {
+      const data = await cfFetchState();
+      backend = "cloudflare";
+      state = data;
+      onReady();
+      setInterval(async () => {
+        if (Date.now() - lastWriteAt < 5000) return; // don't clobber fresh writes
+        try { adoptState(await cfFetchState()); } catch (e) {}
+      }, 4000);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function cfAction(payload) {
+    lastWriteAt = Date.now();
+    fetch("/api/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then((r) => r.json())
+      .then((res) => { if (res && res.state) adoptState(res.state); })
+      .catch(() => {});
+  }
+  function persist() {
+    if (backend === "firebase") saveFirebase();
+    else saveLocal();
+  }
 
   window.Store = {
-    mode: function () { return backend; },
-    init: function (onReady) {
-      window.addEventListener("storage", function (e) {
-        if (backend === "local" && e.key === LS_KEY) { localLoad(); notify(); }
-      });
-      if (window.FIREBASE_CONFIG) firebaseInit(onReady);
-      else { localLoad(); notify(); if (onReady) onReady(); }
+    deviceKey,
+    mode() { return backend; },
+    async init(onReady) {
+      if (await initCloudflare(onReady)) return;
+      if (window.FIREBASE_CONFIG && (await initFirebase(onReady))) { backend = "firebase"; return; }
+      backend = "local";
+      loadLocal();
+      onReady();
     },
-    subscribe: function (cb) { listeners.push(cb); },
-    getState: function () { return state; },
-    setAttendance: function (id, present) {
-      var i = state.presentIds.indexOf(id);
-      if (present && i === -1) state.presentIds.push(id);
-      if (!present && i !== -1) state.presentIds.splice(i, 1);
-      save();
+    subscribe(fn) { listeners.push(fn); },
+    getState() { return state; },
+    myQuestion() {
+      const k = deviceKey();
+      return state.questions.find((q) => q.askerId === k) || null;
     },
-    // The asker is never identified — no name/couple is collected anywhere.
-    // askerKey is a random per-device token (see index.html), used only to
-    // enforce one question per couple (one per device) and never displayed.
-    submitQuestion: function (askerKey, targetId, text) {
-      if (state.presentIds.indexOf(targetId) === -1)
-        return { ok: false, error: "질문을 보낼 부부가 아직 체크인되지 않았습니다." };
-      if (state.questions.some(function (q) { return q.askerId === askerKey; }))
-        return { ok: false, error: "이미 질문을 보내셨습니다. 부부당 하나의 질문만 보낼 수 있습니다." };
+    setAttendance(coupleId, present) {
+      const set = new Set(state.presentIds);
+      if (present) set.add(coupleId); else set.delete(coupleId);
+      state.presentIds = [...set];
+      if (backend === "cloudflare") { notify(); cfAction({ type: "attendance", coupleId, present }); }
+      else persist();
+    },
+    submitQuestion(targetId, text) {
+      text = (text || "").trim();
+      if (!state.presentIds.includes(targetId)) return { ok: false, error: "참석이 확인된 부부에게만 질문할 수 있습니다." };
+      if (!text) return { ok: false, error: "질문을 입력해 주세요." };
+      if (this.myQuestion()) return { ok: false, error: "이미 질문을 보내셨습니다." };
+      const q = {
+        id: "q-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+        askerId: deviceKey(),
+        targetId,
+        text,
+        createdAt: Date.now()
+      };
+      state.questions.push(q);
+      if (backend === "cloudflare") { notify(); cfAction({ type: "submit", askerKey: deviceKey(), targetId, text }); }
+      else persist();
+      return { ok: true, question: q };
+    },
+    updateQuestion(id, text) {
       text = (text || "").trim();
       if (!text) return { ok: false, error: "질문을 입력해 주세요." };
-      state.questions.push({
-        id: "q" + Date.now() + Math.floor(Math.random() * 1000),
-        askerId: askerKey, targetId: targetId, text: text, createdAt: Date.now()
-      });
-      save();
+      const q = state.questions.find((x) => x.id === id);
+      if (!q) return { ok: false, error: "질문을 찾을 수 없습니다." };
+      q.text = text;
+      if (backend === "cloudflare") { notify(); cfAction({ type: "update", questionId: id, text }); }
+      else persist();
       return { ok: true };
     },
-    updateQuestion: function (id, text) {
-      var q = state.questions.find(function (x) { return x.id === id; });
-      if (q) { q.text = (text || "").trim(); save(); }
-    },
-    deleteQuestion: function (id) {
-      state.questions = state.questions.filter(function (x) { return x.id !== id; });
-      save();
+    deleteQuestion(id) {
+      state.questions = state.questions.filter((x) => x.id !== id);
+      if (backend === "cloudflare") { notify(); cfAction({ type: "delete", questionId: id }); }
+      else persist();
     }
   };
 })();

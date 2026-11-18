@@ -61,7 +61,7 @@ function render() {
   app.innerHTML =
     '<h1>관리자 — 삼겹줄 아이스브레이커</h1>' +
     '<p class="sub">모드: <b>' + (Store.mode() === "local" ? "로컬" : "실시간 동기화") + '</b>' +
-    (Store.mode() === "local" ? ' — 이 기기에만 저장됩니다. 휴대폰 간 실시간 동기화는 firebase-config.js 설정을 참고하세요.' : ' — 모든 기기가 실시간으로 동기화됩니다.') + '</p>' +
+    (Store.mode() === "local" ? ' — 이 기기에만 저장됩니다. 모든 기기 동기화는 Cloudflare D1 연결(README 참고) 후 활성화됩니다.' : ' — 모든 기기가 실시간으로 동기화됩니다.') + '</p>' +
     '<h2>출석 확인 — <span class="count">' + presentCount + ' / ' + window.COUPLES.length + ' 부부 참석</span></h2>' +
     atts +
     '<h2>질문 목록 (' + qs.length + '개)</h2>' + qlist;
